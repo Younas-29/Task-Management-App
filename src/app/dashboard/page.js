@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { account, databases } from '@/lib/appwrite';
+import { Query } from 'appwrite';
 import Sidebar from '../components/Sidebar';
 import ProjectCreateModal from '../components/ProjectCreateModal';
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID;
@@ -46,16 +47,16 @@ export default function DashboardPage() {
       try {
         // Query for projects created by user
         const createdRes = await databases.listDocuments(DB_ID, PROJECTS_COLLECTION_ID, [
-          // Query by created_by
-          // Appwrite query: https://appwrite.io/docs/databases#listDocuments
-          // Query.equal('created_by', user.$id)
+          Query.equal('created_by', user.$id)
         ]);
+        console.log('DEBUG: Personal projects fetched:', createdRes.documents);
         // Query for projects in user's teams
         let teamRes = { documents: [] };
         if (teamIds.length > 0) {
           teamRes = await databases.listDocuments(DB_ID, PROJECTS_COLLECTION_ID, [
-            // Query.equal('team_id', teamIds)
+            Query.equal('team_id', teamIds)
           ]);
+          console.log('DEBUG: Team projects fetched:', teamRes.documents);
         }
         // Merge and deduplicate
         const allProjects = [...createdRes.documents, ...teamRes.documents];
@@ -65,9 +66,10 @@ export default function DashboardPage() {
             return acc;
           }, {})
         );
+        console.log('DEBUG: All unique projects:', uniqueProjects);
         setProjects(uniqueProjects);
       } catch (err) {
-        // Handle error
+        console.error('DEBUG: Error fetching projects:', err);
       }
     }
     fetchProjects();

@@ -20,7 +20,7 @@ export default function ProjectCreateModal({ onProjectCreated, user }) {
       const response = await databases.createDocument(DB_ID, PROJECTS_COLLECTION_ID, "unique()", {
         name,
         description,
-        team_id: teamId,
+        team_id: teamId ? teamId : null,
         created_by: user?.$id || "",
       });
       setOpen(false);
