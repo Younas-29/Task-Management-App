@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useRouter, useParams } from 'next/navigation';
 import { account, databases } from '@/lib/appwrite';
+import { Permission, Role } from 'appwrite';
 import Sidebar from '../../components/Sidebar';
 import TaskCreateModal from '../../components/TaskCreateModal';
 import TeamCreateModal from '../../components/TeamCreateModal';
@@ -63,9 +64,9 @@ export default function ProjectDetailPage() {
 
   // Group tasks by status
   const columns = {
-    todo: tasks.filter(t => t.status === 'todo'),
-    inprogress: tasks.filter(t => t.status === 'inprogress'),
-    done: tasks.filter(t => t.status === 'done'),
+  todo: tasks.filter(t => t.status === 'todo'),
+  in_progress: tasks.filter(t => t.status === 'in_progress'),
+  done: tasks.filter(t => t.status === 'done'),
   };
 
   // Handle drag end
@@ -78,14 +79,30 @@ export default function ProjectDetailPage() {
     const movedTask = tasks.find(t => t.$id === draggableId);
     if (!movedTask) return;
     // Update status locally
-    const updatedTask = { ...movedTask, status: destination.droppableId };
+    // Map droppableId to Appwrite status values
+    let statusValue = destination.droppableId === 'inprogress' ? 'in_progress' : destination.droppableId;
+    const updatedTask = { ...movedTask, status: statusValue };
     const newTasks = tasks.map(t => t.$id === draggableId ? updatedTask : t);
     setTasks(newTasks);
-    // Persist status change to Appwrite
+    // Persist status change to Appwrite with team permissions
     try {
-      await databases.updateDocument(DB_ID, TASKS_COLLECTION_ID, draggableId, { status: destination.droppableId });
+      let teamId = project?.team_id;
+      let permissions = teamId ? [
+        // Team members can read, update, delete, write
+        Permission.read(Role.team(teamId)),
+        Permission.update(Role.team(teamId)),
+        Permission.delete(Role.team(teamId)),
+        Permission.write(Role.team(teamId)),
+      ] : [
+        Permission.read(Role.user(user?.$id)),
+        Permission.update(Role.user(user?.$id)),
+        Permission.delete(Role.user(user?.$id)),
+        Permission.write(Role.user(user?.$id)),
+      ];
+      await databases.updateDocument(DB_ID, TASKS_COLLECTION_ID, draggableId, { status: statusValue }, permissions);
     } catch (err) {
       // Optionally revert UI if error
+      console.error('Task update error:', err);
       setTasks(tasks);
     }
   };
@@ -111,11 +128,18 @@ export default function ProjectDetailPage() {
               {/* Add action buttons or stats here in future */}
             </div>
           </div>
-          {/* Kanban board with drag-and-drop */}
+          {/* Task creation modal and Kanban board */}
           <div className="w-full px-6 py-12">
+            <div className="mb-8 flex justify-end">
+              <TaskCreateModal
+                projectId={projectId}
+                user={user}
+                onTaskCreated={task => setTasks(prev => [...prev, task])}
+              />
+            </div>
             <DragDropContext onDragEnd={onDragEnd}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {['todo', 'inprogress', 'done'].map(colId => (
+                {['todo', 'in_progress', 'done'].map(colId => (
                   <Droppable droppableId={colId} key={colId}>
                     {(provided, snapshot) => (
                       <div
@@ -123,7 +147,7 @@ export default function ProjectDetailPage() {
                         {...provided.droppableProps}
                         className={`bg-white rounded-2xl shadow-lg p-6 min-h-[350px] border border-gray-100 flex flex-col transition ${snapshot.isDraggingOver ? 'ring-2 ring-indigo-300' : ''}`}
                       >
-                        <h3 className="text-xl font-bold mb-4 text-indigo-600">{colId === 'todo' ? 'To Do' : colId === 'inprogress' ? 'In Progress' : 'Done'}</h3>
+                        <h3 className="text-xl font-bold mb-4 text-indigo-600">{colId === 'todo' ? 'To Do' : colId === 'in_progress' ? 'In Progress' : 'Done'}</h3>
                         <div className="flex-1 space-y-4">
                           {columns[colId].length === 0 ? (
                             <div className="text-gray-400">No tasks</div>
