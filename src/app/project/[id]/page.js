@@ -6,6 +6,7 @@ import { account, databases } from '@/lib/appwrite';
 import { Permission, Role } from 'appwrite';
 import Sidebar from '../../components/Sidebar';
 import TaskCreateModal from '../../components/TaskCreateModal';
+import TaskDetailSidebar from '../../components/TaskDetailSidebar';
 import TeamCreateModal from '../../components/TeamCreateModal';
 import TeamInviteModal from '../../components/TeamInviteModal';
 import TeamRoleManager from '../../components/TeamRoleManager';
@@ -23,6 +24,8 @@ export default function ProjectDetailPage() {
   const [tasks, setTasks] = useState([]);
   const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -31,8 +34,9 @@ export default function ProjectDetailPage() {
         setUser(userData);
         const projectRes = await databases.getDocument(DB_ID, PROJECTS_COLLECTION_ID, projectId);
         setProject(projectRes);
+        const { Query } = await import('appwrite');
         const tasksRes = await databases.listDocuments(DB_ID, TASKS_COLLECTION_ID, [
-          // Query.equal('project_id', projectId)
+          Query.equal('project_id', projectId)
         ]);
         setTasks(tasksRes.documents);
         // Optionally fetch team members if project.team_id exists
@@ -159,7 +163,11 @@ export default function ProjectDetailPage() {
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={`bg-indigo-50 p-4 rounded-lg border border-indigo-100 shadow-sm transition ${snapshot.isDragging ? 'ring-2 ring-indigo-400' : ''}`}
+                                    className={`bg-indigo-50 p-4 rounded-lg border border-indigo-100 shadow-sm transition cursor-pointer ${snapshot.isDragging ? 'ring-2 ring-indigo-400' : ''}`}
+                                    onClick={() => {
+                                      setSelectedTask(task);
+                                      setSidebarOpen(true);
+                                    }}
                                   >
                                     <div className="font-semibold text-gray-800 text-lg">{task.title}</div>
                                     <div className="text-sm text-gray-500 mt-1">{task.description}</div>
@@ -177,6 +185,19 @@ export default function ProjectDetailPage() {
               </div>
             </DragDropContext>
           </div>
+          {/* Task detail sidebar */}
+          <TaskDetailSidebar
+            task={selectedTask}
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            onTaskUpdated={updated => {
+              setTasks(tasks => tasks.map(t => t.$id === updated.$id ? updated : t));
+            }}
+            onTaskDeleted={deletedId => {
+              setTasks(tasks => tasks.filter(t => t.$id !== deletedId));
+              setSidebarOpen(false);
+            }}
+          />
           {/* Analytics section placeholder */}
           <div className="w-full px-6 mt-8 mb-8">
             <h3 className="text-2xl font-bold text-indigo-700 mb-4">Project Analytics (Coming Soon)</h3>
