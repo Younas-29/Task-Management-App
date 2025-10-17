@@ -263,26 +263,7 @@ export default function ProjectDetailPage() {
               setSidebarOpen(false);
             }}
           />
-          {/* Per-task comments: show in sidebar if a task is selected */}
-          {selectedTask && sidebarOpen && (
-            <div className="fixed top-0 right-0 h-full w-full md:max-w-md z-[60] pointer-events-auto">
-              <CommentThread
-                taskId={selectedTask.$id}
-                projectId={projectId}
-                user={user}
-                teamId={teamId}
-              />
-            </div>
-          )}
-          {/* Real-time comments for the project */}
-          <div className="w-full px-2 md:px-6 mt-8 mb-8">
-            {/* Comments for the project itself (not per task) */}
-            <CommentThread
-              projectId={projectId}
-              user={user}
-              teamId={teamId}
-            />
-          </div>
+          {/* ...comments removed from project detail page... */}
           {/* Analytics section placeholder */}
           <div className="w-full px-2 md:px-6 mt-8 mb-8">
             <h3 className="text-lg md:text-2xl font-bold text-indigo-700 mb-4">Project Analytics (Coming Soon)</h3>

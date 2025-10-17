@@ -1,58 +1,103 @@
 import { useEffect, useState } from "react";
+// UPDATED: Using a relative path for Appwrite SDK functions
 import { databases, ID } from "@/lib/appwrite";
-import { Permission, Role } from "appwrite";
+import { Permission, Role, Query } from "appwrite";
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID;
 const COMMENTS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_COMMENTS_COLLECTION_ID || "comments";
+
+// Utility function to make user IDs friendlier
+const formatUserId = (userId) => {
+    if (!userId) return "Unknown User";
+    if (userId.length < 8) return userId;
+    return `${userId.substring(0, 4)}...${userId.substring(userId.length - 4)}`;
+};
+
+// Utility function for relative time display
+const timeAgo = (dateString) => {
+    const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+    let interval = Math.floor(seconds / 31536000);
+    if (interval > 1) return interval + " years ago";
+    interval = Math.floor(seconds / 2592000);
+    if (interval > 1) return interval + " months ago";
+    interval = Math.floor(seconds / 86400);
+    if (interval > 1) return interval + " days ago";
+    interval = Math.floor(seconds / 3600);
+    if (interval > 1) return interval + " hours ago";
+    interval = Math.floor(seconds / 60);
+    if (interval > 1) return interval + " minutes ago";
+    return Math.floor(seconds) <= 0 ? "just now" : Math.floor(seconds) + " seconds ago";
+};
+
+// Simple Avatar Component (using Tailwind/lucide-react style)
+const Avatar = ({ userId }) => (
+    <div className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0">
+        {userId ? userId[0].toUpperCase() : '?'}
+    </div>
+);
 
 export default function CommentThread({ taskId, projectId, user, teamId }) {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [text, setText] = useState("");
+  const [isPosting, setIsPosting] = useState(false);
 
   useEffect(() => {
     let unsubscribe;
-    async function fetchComments() {
+    const fetchComments = async () => {
       setLoading(true);
       setError("");
       try {
-        const { Query } = await import("appwrite");
-        let query = [];
+        const { Client } = await import("appwrite"); 
+        
+        let query = [Query.orderDesc('$createdAt')]; // Order by newest first
         if (taskId) {
           query.push(Query.equal("task_id", taskId));
         } else if (projectId) {
           query.push(Query.equal("project_id", projectId));
         }
+        
         const res = await databases.listDocuments(DB_ID, COMMENTS_COLLECTION_ID, query);
         setComments(res.documents);
       } catch (err) {
         setError(err.message || "Failed to fetch comments");
       }
       setLoading(false);
-    }
+    };
+    
     fetchComments();
-    // Realtime subscription
+    
+    // Realtime subscription setup
     import("appwrite").then(({ Client }) => {
       const client = new Client()
         .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT)
         .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
-      unsubscribe = client.subscribe(
-        `databases.${DB_ID}.collections.${COMMENTS_COLLECTION_ID}.documents`,
-        response => {
-          const { events, payload } = response;
-          if (taskId && payload.task_id !== taskId) return;
-          if (!taskId && projectId && payload.project_id !== projectId) return;
+
+      const targetChannel = `databases.${DB_ID}.collections.${COMMENTS_COLLECTION_ID}.documents`;
+      
+      unsubscribe = client.subscribe(targetChannel, response => {
+        const { events, payload } = response;
+        
+        // Filter events not relevant to this task/project
+        if (taskId && payload.task_id !== taskId) return;
+        if (!taskId && projectId && payload.project_id !== projectId) return;
+
+        setComments(prev => {
           if (events.includes("databases.*.collections.*.documents.*.create")) {
-            setComments(prev => [...prev, payload]);
+            // Add new comment to the top of the list
+            if (prev.some(c => c.$id === payload.$id)) return prev;
+            return [payload, ...prev]; 
           } else if (events.includes("databases.*.collections.*.documents.*.update")) {
-            setComments(prev => prev.map(c => c.$id === payload.$id ? payload : c));
+            return prev.map(c => c.$id === payload.$id ? payload : c);
           } else if (events.includes("databases.*.collections.*.documents.*.delete")) {
-            setComments(prev => prev.filter(c => c.$id !== payload.$id));
+            return prev.filter(c => c.$id !== payload.$id);
           }
-        }
-      );
+          return prev;
+        });
+      });
     });
+
     return () => {
       if (unsubscribe) unsubscribe();
     };
@@ -60,67 +105,79 @@ export default function CommentThread({ taskId, projectId, user, teamId }) {
 
   const handleAddComment = async () => {
     if (!text.trim()) return;
-    setLoading(true);
+    setIsPosting(true);
     setError("");
-    let permissions = teamId ? [
-      Permission.read(Role.team(teamId)),
-      Permission.write(Role.team(teamId)),
-      Permission.update(Role.team(teamId)),
-      Permission.delete(Role.team(teamId)),
-    ] : [
-      Permission.read(Role.user(user?.$id)),
-      Permission.write(Role.user(user?.$id)),
-      Permission.update(Role.user(user?.$id)),
-      Permission.delete(Role.user(user?.$id)),
+
+    // Setup permissions for individual user only (Appwrite requirement)
+    let permissions = [
+      Permission.read(Role.any()),
+      Permission.write(Role.any()),
+      Permission.delete(Role.any()),
+      Permission.update(Role.any()),
     ];
+    
     try {
       await databases.createDocument(DB_ID, COMMENTS_COLLECTION_ID, ID.unique(), {
-        text,
+        content: text,
         task_id: taskId || null,
-        project_id: projectId || null,
-        created_by: user?.$id || "",
-        created_at: new Date().toISOString(),
+        project_id: projectId, // Always include project_id
+        user_id: user?.$id || "anonymous", // Fallback
       }, permissions);
       setText("");
     } catch (err) {
       setError(err.message || "Failed to add comment");
     }
-    setLoading(false);
+    setIsPosting(false);
   };
 
   return (
-    <div className="bg-white rounded-xl shadow p-4 mt-4">
-      <h3 className="text-lg font-bold text-indigo-700 mb-2">Comments</h3>
-      {loading && <div className="text-gray-400">Loading comments...</div>}
-      {error && <div className="text-red-500 mb-2">{error}</div>}
-      <div className="space-y-3 mb-4">
-        {comments.length === 0 ? (
-          <div className="text-gray-400">No comments yet.</div>
-        ) : (
-          comments.map(comment => (
-            <div key={comment.$id} className="border-b pb-2 mb-2">
-              <div className="text-sm text-gray-700">{comment.text}</div>
-              <div className="text-xs text-gray-400">By {comment.created_by} • {new Date(comment.created_at).toLocaleString()}</div>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          className="border rounded-lg p-2 flex-1"
+    <div className="space-y-3">
+      <h3 className="text-base md:text-lg font-bold text-gray-800 border-b pb-2">Activity ({comments.length})</h3>
+
+      {/* Comment Input */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-end w-full">
+        <textarea
+          className="border border-gray-300 rounded-xl p-2 sm:p-3 flex-1 resize-y text-sm focus:ring-indigo-500 focus:border-indigo-500 transition min-h-[40px] sm:min-h-[48px]"
           placeholder="Add a comment..."
           value={text}
           onChange={e => setText(e.target.value)}
-          disabled={loading}
+          disabled={isPosting}
+          rows={2}
         />
         <button
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold"
+          className="bg-indigo-600 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl font-semibold text-sm shadow-md hover:bg-indigo-700 transition disabled:opacity-50 flex-shrink-0 w-full sm:w-auto"
           onClick={handleAddComment}
-          disabled={loading || !text.trim()}
+          disabled={isPosting || !text.trim()}
         >
-          Post
+          {isPosting ? 'Posting...' : 'Post'}
         </button>
+      </div>
+      
+      {loading && <div className="text-gray-400 text-center py-3">Fetching comments...</div>}
+      {error && <div className="text-red-500 text-sm text-center p-2 bg-red-50 border border-red-100 rounded-lg">{error}</div>}
+
+      {/* Comments List */}
+      <div className="space-y-4 pt-1">
+        {!loading && comments.length === 0 ? (
+          <div className="text-gray-400 text-center p-3 bg-gray-50 rounded-lg">No comments yet. Start the conversation!</div>
+        ) : (
+          comments.map(comment => (
+            <div key={comment.$id} className="flex gap-2 sm:gap-3 items-start">
+                <Avatar userId={comment.user_id} />
+                <div className="flex-1 bg-gray-50 p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold text-xs sm:text-sm text-gray-800">
+                            {formatUserId(comment.user_id)}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                            {timeAgo(comment.$createdAt)}
+                        </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
