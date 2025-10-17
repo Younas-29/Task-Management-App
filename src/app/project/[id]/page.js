@@ -68,12 +68,16 @@ export default function ProjectDetailPage() {
         `databases.${DB_ID}.collections.${TASKS_COLLECTION_ID}.documents`,
         response => {
           const { events, payload } = response;
+          console.log('[Realtime] Event:', events, 'Payload:', payload);
           if (payload.project_id !== projectId) return;
           if (events.includes('databases.*.collections.*.documents.*.create')) {
+            console.log('[Realtime] Task created:', payload);
             setTasks(prev => [...prev, payload]);
           } else if (events.includes('databases.*.collections.*.documents.*.update')) {
+            console.log('[Realtime] Task updated:', payload);
             setTasks(prev => prev.map(t => t.$id === payload.$id ? payload : t));
           } else if (events.includes('databases.*.collections.*.documents.*.delete')) {
+            console.log('[Realtime] Task deleted:', payload);
             setTasks(prev => prev.filter(t => t.$id !== payload.$id));
           }
         }
@@ -81,11 +85,11 @@ export default function ProjectDetailPage() {
       setRealtimeUnsubscribe(() => unsubscribe);
     });
     return () => {
-      if (realtimeUnsubscribe) {
-        realtimeUnsubscribe();
+      if (unsubscribe) {
+        unsubscribe();
       }
     };
-  }, [projectId, realtimeUnsubscribe]);
+  }, [projectId]);
 
   // Group tasks by status
   const columns = {
@@ -99,23 +103,27 @@ export default function ProjectDetailPage() {
   // Handle drag end
   const onDragEnd = async (result) => {
     const { source, destination, draggableId } = result;
+    console.log('[DragDrop] onDragEnd:', result);
     if (!destination || (source.droppableId === destination.droppableId && source.index === destination.index)) {
+      console.log('[DragDrop] No destination or same position, skipping.');
       return;
     }
     // Find the task
     const movedTask = tasks.find(t => t.$id === draggableId);
-    if (!movedTask) return;
+    if (!movedTask) {
+      console.log('[DragDrop] Moved task not found:', draggableId);
+      return;
+    }
     // Update status locally
-    // Map droppableId to Appwrite status values
     let statusValue = destination.droppableId === 'inprogress' ? 'in_progress' : destination.droppableId;
     const updatedTask = { ...movedTask, status: statusValue };
     const newTasks = tasks.map(t => t.$id === draggableId ? updatedTask : t);
+    console.log('[DragDrop] Updating local state:', newTasks);
     setTasks(newTasks);
     // Persist status change to Appwrite with team permissions
     try {
       let teamId = project?.team_id;
       let permissions = teamId ? [
-        // Team members can read, update, delete, write
         Permission.read(Role.team(teamId)),
         Permission.update(Role.team(teamId)),
         Permission.delete(Role.team(teamId)),
@@ -126,10 +134,11 @@ export default function ProjectDetailPage() {
         Permission.delete(Role.user(user?.$id)),
         Permission.write(Role.user(user?.$id)),
       ];
+      console.log('[DragDrop] Persisting to Appwrite:', draggableId, statusValue, permissions);
       await databases.updateDocument(DB_ID, TASKS_COLLECTION_ID, draggableId, { status: statusValue }, permissions);
+      console.log('[DragDrop] Update successful');
     } catch (err) {
-      // Optionally revert UI if error
-      console.error('Task update error:', err);
+      console.error('[DragDrop] Task update error:', err);
       setTasks(tasks);
     }
   };
