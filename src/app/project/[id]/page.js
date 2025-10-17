@@ -10,6 +10,9 @@ import TaskDetailSidebar from '../../components/TaskDetailSidebar';
 import TeamCreateModal from '../../components/TeamCreateModal';
 import TeamInviteModal from '../../components/TeamInviteModal';
 import TeamRoleManager from '../../components/TeamRoleManager';
+import NotificationHandler from '../../components/NotificationHandler';
+import CommentThread from '../../components/CommentThread';
+
 
 const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID;
 const PROJECTS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID;
@@ -55,19 +58,16 @@ export default function ProjectDetailPage() {
   // Realtime subscription for tasks
   useEffect(() => {
     if (!projectId) return;
-    // Import Appwrite client for realtime
     let unsubscribe = null;
     import('appwrite').then(({ Client, Databases }) => {
       const client = new Client()
         .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT)
         .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
-      const databasesRT = new Databases(client);
       // Subscribe to changes in the tasks collection for this project
       unsubscribe = client.subscribe(
         `databases.${DB_ID}.collections.${TASKS_COLLECTION_ID}.documents`,
         response => {
           const { events, payload } = response;
-          // Only update if the task is for this project
           if (payload.project_id !== projectId) return;
           if (events.includes('databases.*.collections.*.documents.*.create')) {
             setTasks(prev => [...prev, payload]);
@@ -80,33 +80,18 @@ export default function ProjectDetailPage() {
       );
       setRealtimeUnsubscribe(() => unsubscribe);
     });
-    // Cleanup on unmount
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (realtimeUnsubscribe) {
+        realtimeUnsubscribe();
+      }
     };
-  }, [projectId]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-        <div className="text-lg text-gray-600 animate-pulse">Loading project...</div>
-      </div>
-    );
-  }
-
-  if (!project) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-xl text-gray-400">Project not found.</div>
-      </div>
-    );
-  }
+  }, [projectId, realtimeUnsubscribe]);
 
   // Group tasks by status
   const columns = {
     todo: tasks.filter(t => t.status === 'todo'),
     in_progress: tasks.filter(t => t.status === 'in_progress'),
-    done: tasks.filter(t => t.status === 'done'),
+    done: tasks.filter(t => t.status === 'done')
   };
   // Team ID for permissions
   const teamId = project?.team_id;
@@ -149,6 +134,20 @@ export default function ProjectDetailPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-indigo-600 text-xl font-bold">Loading project...</div>
+      </div>
+    );
+  }
+  if (!project || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-600 text-xl font-bold">Project or user not found.</div>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       <Sidebar
@@ -160,6 +159,8 @@ export default function ProjectDetailPage() {
           router.replace('/login');
         }}
       />
+      {/* Notification handler for instant alerts */}
+      {user && <NotificationHandler user={user} />}
       <main className="flex-1 flex flex-col px-0 py-0">
         <section className="w-full px-0 py-0">
           {/* Project Overview */}
