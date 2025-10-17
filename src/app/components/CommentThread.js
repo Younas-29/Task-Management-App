@@ -37,6 +37,47 @@ const Avatar = ({ userId }) => (
 );
 
 export default function CommentThread({ taskId, projectId, user, teamId }) {
+  // For swipe/drag detection
+  const [swipedComment, setSwipedComment] = useState(null);
+  const [editContent, setEditContent] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  // Handle swipe/drag events (desktop & mobile)
+  const handleSwipe = (direction, comment) => {
+    if (direction === "left") {
+      setSwipedComment(comment.$id);
+      setEditContent(comment.content);
+    } else if (direction === "right") {
+      setDeleteTarget(comment);
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const handleEditComment = async (comment) => {
+    if (!editContent.trim()) return;
+    setLoading(true);
+    try {
+      await databases.updateDocument(DB_ID, COMMENTS_COLLECTION_ID, comment.$id, { content: editContent });
+      setSwipedComment(null);
+    } catch (err) {
+      setError(err.message || "Failed to edit comment");
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteComment = async () => {
+    if (!deleteTarget) return;
+    setLoading(true);
+    try {
+      await databases.deleteDocument(DB_ID, COMMENTS_COLLECTION_ID, deleteTarget.$id);
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+    } catch (err) {
+      setError(err.message || "Failed to delete comment");
+    }
+    setLoading(false);
+  };
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -161,22 +202,91 @@ export default function CommentThread({ taskId, projectId, user, teamId }) {
         {!loading && comments.length === 0 ? (
           <div className="text-gray-400 text-center p-3 bg-gray-50 rounded-lg">No comments yet. Start the conversation!</div>
         ) : (
-          comments.map(comment => (
-            <div key={comment.$id} className="flex gap-2 sm:gap-3 items-start">
+          comments.map(comment => {
+            // Swipe/drag logic: mouse/touch events
+            let startX = null;
+            let threshold = 60; // px
+            return (
+              <div
+                key={comment.$id}
+                className="flex gap-2 sm:gap-3 items-start group"
+                onMouseDown={e => { startX = e.clientX; }}
+                onMouseUp={e => {
+                  if (startX !== null) {
+                    let diff = e.clientX - startX;
+                    if (diff < -threshold) handleSwipe("left", comment);
+                    if (diff > threshold) handleSwipe("right", comment);
+                    startX = null;
+                  }
+                }}
+                onTouchStart={e => { startX = e.touches[0].clientX; }}
+                onTouchEnd={e => {
+                  if (startX !== null) {
+                    let diff = e.changedTouches[0].clientX - startX;
+                    if (diff < -threshold) handleSwipe("left", comment);
+                    if (diff > threshold) handleSwipe("right", comment);
+                    startX = null;
+                  }
+                }}
+              >
                 <Avatar userId={comment.user_id} />
-                <div className="flex-1 bg-gray-50 p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100">
-                    <div className="flex justify-between items-center mb-1">
-                        <span className="font-semibold text-xs sm:text-sm text-gray-800">
-                            {formatUserId(comment.user_id)}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                            {timeAgo(comment.$createdAt)}
-                        </span>
+                <div className="flex-1 bg-gray-50 p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100 relative">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-semibold text-xs sm:text-sm text-gray-800">
+                      {formatUserId(comment.user_id)}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {timeAgo(comment.$createdAt)}
+                    </span>
+                  </div>
+                  {swipedComment === comment.$id ? (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        className="border border-indigo-300 rounded-lg p-2 text-sm w-full"
+                        value={editContent}
+                        onChange={e => setEditContent(e.target.value)}
+                        disabled={loading}
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          className="bg-indigo-600 text-white px-3 py-1 rounded-lg text-xs font-semibold"
+                          onClick={() => handleEditComment(comment)}
+                          disabled={loading || !editContent.trim()}
+                        >Save</button>
+                        <button
+                          className="bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-xs font-semibold"
+                          onClick={() => setSwipedComment(null)}
+                          disabled={loading}
+                        >Cancel</button>
+                      </div>
                     </div>
+                  ) : (
                     <p className="text-xs sm:text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                  )}
+                  {deleteTarget && deleteTarget.$id === comment.$id && showDeleteConfirm && (
+                    <div className="absolute top-0 left-0 w-full h-full bg-black bg-opacity-30 flex items-center justify-center z-10">
+                      <div className="bg-white p-4 rounded-lg shadow-xl border border-gray-200 text-center">
+                        <div className="mb-2 text-sm font-semibold text-gray-800">Are you sure you want to delete this comment?</div>
+                        <div className="flex gap-2 justify-center mt-2">
+                          <button
+                            className="bg-red-600 text-white px-4 py-1 rounded-lg text-xs font-semibold"
+                            onClick={handleDeleteComment}
+                            disabled={loading}
+                          >Delete</button>
+                          <button
+                            className="bg-gray-200 text-gray-700 px-4 py-1 rounded-lg text-xs font-semibold"
+                            onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }}
+                            disabled={loading}
+                          >Cancel</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-            </div>
-          ))
+              </div>
+            );
+          })
         )}
       </div>
     </div>

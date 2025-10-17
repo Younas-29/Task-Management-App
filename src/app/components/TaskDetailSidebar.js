@@ -14,6 +14,16 @@ export default function TaskDetailSidebar({ task, open, onClose, onTaskUpdated, 
   const [dueDate, setDueDate] = useState(task?.due_date || "");
   const [assignee, setAssignee] = useState(task?.assignee || "");
   const [status, setStatus] = useState(task?.status || "todo");
+
+  // Update local state when a new task is selected
+  useEffect(() => {
+    setTitle(task?.title || "");
+    setDescription(task?.description || "");
+    setPriority(task?.priority || "medium");
+    setDueDate(task?.due_date || "");
+    setAssignee(task?.assignee || "");
+    setStatus(task?.status || "todo");
+  }, [task]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -29,7 +39,7 @@ export default function TaskDetailSidebar({ task, open, onClose, onTaskUpdated, 
     setLoading(true);
     setError("");
     try {
-      const updated = await databases.updateDocument(DB_ID, TASKS_COLLECTION_ID, task.$id, {
+      await databases.updateDocument(DB_ID, TASKS_COLLECTION_ID, task.$id, {
         title,
         description,
         priority,
@@ -37,8 +47,7 @@ export default function TaskDetailSidebar({ task, open, onClose, onTaskUpdated, 
         assignee,
         status,
       });
-      if (onTaskUpdated) onTaskUpdated(updated);
-      // Removed onClose() here, as user might want to continue editing or view changes
+      // Do not update local state; rely on real-time subscription for updates
     } catch (err) {
       setError(err.message || "Failed to update task");
     }
