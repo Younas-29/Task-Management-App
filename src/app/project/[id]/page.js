@@ -72,7 +72,11 @@ export default function ProjectDetailPage() {
           if (payload.project_id !== projectId) return;
           if (events.includes('databases.*.collections.*.documents.*.create')) {
             console.log('[Realtime] Task created:', payload);
-            setTasks(prev => [...prev, payload]);
+            setTasks(prev => {
+              // Prevent duplicate tasks by checking for existing $id
+              if (prev.some(t => t.$id === payload.$id)) return prev;
+              return [...prev, payload];
+            });
           } else if (events.includes('databases.*.collections.*.documents.*.update')) {
             console.log('[Realtime] Task updated:', payload);
             setTasks(prev => prev.map(t => t.$id === payload.$id ? payload : t));
@@ -194,7 +198,6 @@ export default function ProjectDetailPage() {
               <TaskCreateModal
                 projectId={projectId}
                 user={user}
-                onTaskCreated={task => setTasks(prev => [...prev, task])}
               />
             </div>
             <DragDropContext onDragEnd={onDragEnd}>
