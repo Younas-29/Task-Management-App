@@ -9,6 +9,7 @@ const DB_ID = process.env.NEXT_PUBLIC_APPWRITE_DB_ID;
 const PROJECTS_COLLECTION_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECTS_COLLECTION_ID;
 
 export default function DashboardPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +86,31 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-      <Sidebar user={user} LogoutButton={null} />
+      {/* Hamburger menu button for mobile */}
+      <button
+        className="absolute top-6 left-4 z-50 p-2 rounded-lg bg-white/80 shadow-lg border border-indigo-200 md:hidden flex items-center justify-center transition hover:bg-indigo-50"
+        onClick={() => setIsMenuOpen(true)}
+        aria-label="Open menu"
+        style={{ boxShadow: '0 2px 8px 0 rgba(80, 80, 180, 0.10)' }}
+      >
+        <svg className="w-8 h-8 text-indigo-700" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <rect x="4" y="6.5" width="16" height="2" rx="1" fill="currentColor" className="text-indigo-400" />
+          <rect x="4" y="11" width="16" height="2" rx="1" fill="currentColor" className="text-indigo-400" />
+          <rect x="4" y="15.5" width="16" height="2" rx="1" fill="currentColor" className="text-indigo-400" />
+        </svg>
+      </button>
+      {/* Sidebar: controlled for mobile, static for desktop */}
+      <Sidebar
+        user={user}
+        onLogout={async () => {
+          try {
+            await account.deleteSession('current');
+          } catch (err) {}
+          router.replace('/login');
+        }}
+        isMenuOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+      />
       <main className="flex-1 flex flex-col items-center justify-start px-0 py-0">
         <section className="w-full max-w-6xl mx-auto px-6 py-12">
           <div className="flex items-center justify-between mb-10">

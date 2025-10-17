@@ -81,22 +81,22 @@ export default function TaskCreateModal({ projectId, user, onTaskCreated }) {
         + Add Task
       </button>
       {open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 relative">
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex items-center justify-center">
+          <div className="bg-white w-full h-full max-w-full md:max-w-md md:h-auto rounded-none md:rounded-2xl shadow-2xl border border-gray-200 relative flex flex-col justify-center overflow-y-auto p-4 md:p-8">
             <button
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-xl"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl md:text-xl"
               onClick={() => setOpen(false)}
               disabled={loading}
               aria-label="Close"
             >
               &times;
             </button>
-            <h2 className="text-2xl font-extrabold mb-4 text-indigo-700 text-center">Create a New Task</h2>
+            <h2 className="text-xl md:text-2xl font-extrabold mb-4 text-indigo-700 text-center">Create a New Task</h2>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
               <input
                 type="text"
-                className="border border-gray-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2"
+                className="border border-gray-300 rounded-lg p-4 md:p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2 text-base"
                 placeholder="Task Title"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
@@ -107,7 +107,7 @@ export default function TaskCreateModal({ projectId, user, onTaskCreated }) {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
               <textarea
-                className="border border-gray-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2 resize-none"
+                className="border border-gray-300 rounded-lg p-4 md:p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2 resize-none text-base"
                 placeholder="Description"
                 value={description}
                 onChange={e => setDescription(e.target.value)}
@@ -118,7 +118,7 @@ export default function TaskCreateModal({ projectId, user, onTaskCreated }) {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
               <select
-                className="border border-gray-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2"
+                className="border border-gray-300 rounded-lg p-4 md:p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2 text-base"
                 value={priority}
                 onChange={e => setPriority(e.target.value)}
                 disabled={loading}
@@ -132,7 +132,7 @@ export default function TaskCreateModal({ projectId, user, onTaskCreated }) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
               <input
                 type="date"
-                className="border border-gray-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2"
+                className="border border-gray-300 rounded-lg p-4 md:p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2 text-base"
                 value={dueDate}
                 onChange={e => setDueDate(e.target.value)}
                 disabled={loading}
@@ -142,7 +142,7 @@ export default function TaskCreateModal({ projectId, user, onTaskCreated }) {
               <label className="block text-sm font-medium text-gray-700 mb-1">Assignee (User ID or Email)</label>
               <input
                 type="text"
-                className="border border-gray-300 rounded-lg p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2"
+                className="border border-gray-300 rounded-lg p-4 md:p-3 w-full focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-2 text-base"
                 placeholder="Assignee"
                 value={assignee}
                 onChange={e => setAssignee(e.target.value)}
@@ -152,14 +152,14 @@ export default function TaskCreateModal({ projectId, user, onTaskCreated }) {
             {error && <div className="text-red-500 mb-2 text-sm text-center">{error}</div>}
             <div className="flex gap-3 justify-end mt-6">
               <button
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition"
+                className="px-6 py-3 md:px-4 md:py-2 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition text-base"
                 onClick={() => setOpen(false)}
                 disabled={loading}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold shadow hover:scale-105 hover:shadow-lg transition-all"
+                className="px-6 py-3 md:px-4 md:py-2 bg-indigo-600 text-white rounded-lg font-semibold shadow hover:scale-105 hover:shadow-lg transition-all text-base"
                 onClick={handleCreate}
                 disabled={loading || !title}
               >

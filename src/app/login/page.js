@@ -76,8 +76,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gray-50/70">
-      {/* Left: Login Form - Parent div is flex to center content */}
+    <div className="min-h-screen flex flex-col md:flex-row bg-gray-50/70">
+      {/* Login Form: full width on mobile/tablet */}
       <div className="flex-1 flex items-center justify-center bg-white shadow-xl z-10 relative overflow-hidden">
         <AnimatePresence mode="wait">
           {!isExiting && (
@@ -88,26 +88,22 @@ export default function LoginPage() {
               animate="animate"
               exit="exit"
               transition={{ duration: 0.5, ease: 'easeInOut' }}
-              // Ensure the form content itself is centered and spaced
-              className="w-full max-w-md space-y-6 px-12 py-16"
+              className="w-full max-w-md space-y-6 px-4 py-8 md:px-12 md:py-16"
               onSubmit={handleSubmit}
             >
-              <h2 className="text-3xl font-bold mb-6 text-indigo-600">Sign in to TaskFlow</h2>
+              <h2 className="text-2xl md:text-3xl font-bold mb-6 text-indigo-600">Sign in to TaskFlow</h2>
               {error && <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm">{error}</div>}
-              
               <div>
                 <label htmlFor="email" className="block text-sm font-medium mb-2">Email Address</label>
-                <input id="email" name="email" type="email" required value={form.email} onChange={handleChange} className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input id="email" name="email" type="email" required value={form.email} onChange={handleChange} className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base" />
               </div>
               <div>
                 <label htmlFor="password" className="block text-sm font-medium mb-2">Password</label>
-                <input id="password" name="password" type="password" required value={form.password} onChange={handleChange} className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input id="password" name="password" type="password" required value={form.password} onChange={handleChange} className="w-full rounded-lg border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base" />
               </div>
-              
               <button type="submit" disabled={loading} className="w-full py-3 rounded-lg bg-indigo-600 text-white font-semibold text-lg shadow hover:bg-indigo-700 transition mt-8">
                 {loading ? 'Signing In...' : 'Login'}
               </button>
-              
               <div className="flex justify-between text-sm mt-2">
                 <Link href="#" className="text-indigo-500 hover:underline">Forgot Password?</Link>
                 <button type="button" onClick={() => navigateTo('/register')} className="text-gray-500 hover:underline bg-transparent border-none p-0">Need an account? Sign Up</button>
@@ -117,14 +113,14 @@ export default function LoginPage() {
         </AnimatePresence>
       </div>
 
-      {/* Right: Branding - Content fades slightly */}
+      {/* Branding: hidden on small screens */}
       <motion.div
         key="branding-login-side"
         variants={contentVariants}
         initial={false}
         animate={isExiting ? 'exit' : 'animate'}
         transition={{ duration: 0.5, ease: 'easeInOut' }}
-        className="flex-1 flex items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 relative"
+        className="hidden md:flex flex-1 items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 relative"
       >
         <TaskFlowBrandingLogin />
       </motion.div>

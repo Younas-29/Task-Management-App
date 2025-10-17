@@ -112,18 +112,26 @@ export default function ProjectDetailPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-      <Sidebar user={user} />
+    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      <Sidebar
+        user={user}
+        onLogout={async () => {
+          try {
+            await account.deleteSession('current');
+          } catch (err) {}
+          router.replace('/login');
+        }}
+      />
       <main className="flex-1 flex flex-col px-0 py-0">
         <section className="w-full px-0 py-0">
           {/* Project Overview */}
-          <div className="w-full bg-white/70 shadow-sm border-b border-gray-100 px-12 py-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="w-full bg-white/70 shadow-sm border-b border-gray-100 px-4 py-6 md:px-12 md:py-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <h2 className="text-4xl font-extrabold text-indigo-800 mb-2">{project.name}</h2>
-              <div className="text-lg text-gray-600 mb-2">{project.description}</div>
-              <div className="flex gap-4 text-sm text-gray-400">
+              <h2 className="text-2xl md:text-4xl font-extrabold text-indigo-800 mb-2">{project.name}</h2>
+              <div className="text-base md:text-lg text-gray-600 mb-2">{project.description}</div>
+              <div className="flex flex-col md:flex-row gap-2 md:gap-4 text-xs md:text-sm text-gray-400">
                 <span>Created: {new Date(project.$createdAt).toLocaleDateString()}</span>
-                <span>&bull;</span>
+                <span className="hidden md:inline">&bull;</span>
                 <span>By: {project.created_by === user?.$id ? 'You' : project.created_by}</span>
               </div>
             </div>
@@ -133,8 +141,8 @@ export default function ProjectDetailPage() {
             </div>
           </div>
           {/* Task creation modal and Kanban board */}
-          <div className="w-full px-6 py-12">
-            <div className="mb-8 flex justify-end">
+          <div className="w-full px-2 py-6 md:px-6 md:py-12">
+            <div className="mb-6 md:mb-8 flex justify-end">
               <TaskCreateModal
                 projectId={projectId}
                 user={user}
@@ -142,16 +150,25 @@ export default function ProjectDetailPage() {
               />
             </div>
             <DragDropContext onDragEnd={onDragEnd}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="flex flex-col md:grid md:grid-cols-3 gap-4 md:gap-8 overflow-x-auto md:overflow-x-visible">
+                <div className="flex md:hidden gap-2 mb-4">
+                  {/* Show column headers for mobile */}
+                  {['todo', 'in_progress', 'done'].map(colId => (
+                    <span key={colId} className="flex-1 text-center text-xs font-bold text-indigo-600 bg-indigo-50 rounded-lg py-2">
+                      {colId === 'todo' ? 'To Do' : colId === 'in_progress' ? 'In Progress' : 'Done'}
+                    </span>
+                  ))}
+                </div>
                 {['todo', 'in_progress', 'done'].map(colId => (
                   <Droppable droppableId={colId} key={colId}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
                         {...provided.droppableProps}
-                        className={`bg-white rounded-2xl shadow-lg p-6 min-h-[350px] border border-gray-100 flex flex-col transition ${snapshot.isDraggingOver ? 'ring-2 ring-indigo-300' : ''}`}
+                        className={`bg-white rounded-2xl shadow-lg p-3 md:p-6 min-h-[250px] md:min-h-[350px] border border-gray-100 flex flex-col transition ${snapshot.isDraggingOver ? 'ring-2 ring-indigo-300' : ''} w-full md:w-auto mb-4 md:mb-0`}
+                        style={{ minWidth: '260px' }}
                       >
-                        <h3 className="text-xl font-bold mb-4 text-indigo-600">{colId === 'todo' ? 'To Do' : colId === 'in_progress' ? 'In Progress' : 'Done'}</h3>
+                        <h3 className="hidden md:block text-xl font-bold mb-4 text-indigo-600">{colId === 'todo' ? 'To Do' : colId === 'in_progress' ? 'In Progress' : 'Done'}</h3>
                         <div className="flex-1 space-y-4">
                           {columns[colId].length === 0 ? (
                             <div className="text-gray-400">No tasks</div>
@@ -163,14 +180,14 @@ export default function ProjectDetailPage() {
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={`bg-indigo-50 p-4 rounded-lg border border-indigo-100 shadow-sm transition cursor-pointer ${snapshot.isDragging ? 'ring-2 ring-indigo-400' : ''}`}
+                                    className={`bg-indigo-50 p-3 md:p-4 rounded-lg border border-indigo-100 shadow-sm transition cursor-pointer ${snapshot.isDragging ? 'ring-2 ring-indigo-400' : ''}`}
                                     onClick={() => {
                                       setSelectedTask(task);
                                       setSidebarOpen(true);
                                     }}
                                   >
-                                    <div className="font-semibold text-gray-800 text-lg">{task.title}</div>
-                                    <div className="text-sm text-gray-500 mt-1">{task.description}</div>
+                                    <div className="font-semibold text-gray-800 text-base md:text-lg">{task.title}</div>
+                                    <div className="text-xs md:text-sm text-gray-500 mt-1">{task.description}</div>
                                   </div>
                                 )}
                               </Draggable>
@@ -199,9 +216,9 @@ export default function ProjectDetailPage() {
             }}
           />
           {/* Analytics section placeholder */}
-          <div className="w-full px-6 mt-8 mb-8">
-            <h3 className="text-2xl font-bold text-indigo-700 mb-4">Project Analytics (Coming Soon)</h3>
-            <div className="bg-white rounded-xl shadow p-6 text-gray-400">Charts and progress metrics will appear here.</div>
+          <div className="w-full px-2 md:px-6 mt-8 mb-8">
+            <h3 className="text-lg md:text-2xl font-bold text-indigo-700 mb-4">Project Analytics (Coming Soon)</h3>
+            <div className="bg-white rounded-xl shadow p-4 md:p-6 text-gray-400">Charts and progress metrics will appear here.</div>
           </div>
         </section>
       </main>
