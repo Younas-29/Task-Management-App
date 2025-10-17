@@ -26,6 +26,8 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Realtime subscription cleanup
+  const [realtimeUnsubscribe, setRealtimeUnsubscribe] = useState(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -50,6 +52,40 @@ export default function ProjectDetailPage() {
     if (projectId) fetchData();
   }, [projectId, router]);
 
+  // Realtime subscription for tasks
+  useEffect(() => {
+    if (!projectId) return;
+    // Import Appwrite client for realtime
+    let unsubscribe = null;
+    import('appwrite').then(({ Client, Databases }) => {
+      const client = new Client()
+        .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT)
+        .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
+      const databasesRT = new Databases(client);
+      // Subscribe to changes in the tasks collection for this project
+      unsubscribe = client.subscribe(
+        `databases.${DB_ID}.collections.${TASKS_COLLECTION_ID}.documents`,
+        response => {
+          const { events, payload } = response;
+          // Only update if the task is for this project
+          if (payload.project_id !== projectId) return;
+          if (events.includes('databases.*.collections.*.documents.*.create')) {
+            setTasks(prev => [...prev, payload]);
+          } else if (events.includes('databases.*.collections.*.documents.*.update')) {
+            setTasks(prev => prev.map(t => t.$id === payload.$id ? payload : t));
+          } else if (events.includes('databases.*.collections.*.documents.*.delete')) {
+            setTasks(prev => prev.filter(t => t.$id !== payload.$id));
+          }
+        }
+      );
+      setRealtimeUnsubscribe(() => unsubscribe);
+    });
+    // Cleanup on unmount
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [projectId]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
@@ -68,10 +104,12 @@ export default function ProjectDetailPage() {
 
   // Group tasks by status
   const columns = {
-  todo: tasks.filter(t => t.status === 'todo'),
-  in_progress: tasks.filter(t => t.status === 'in_progress'),
-  done: tasks.filter(t => t.status === 'done'),
+    todo: tasks.filter(t => t.status === 'todo'),
+    in_progress: tasks.filter(t => t.status === 'in_progress'),
+    done: tasks.filter(t => t.status === 'done'),
   };
+  // Team ID for permissions
+  const teamId = project?.team_id;
 
   // Handle drag end
   const onDragEnd = async (result) => {
@@ -215,6 +253,26 @@ export default function ProjectDetailPage() {
               setSidebarOpen(false);
             }}
           />
+          {/* Per-task comments: show in sidebar if a task is selected */}
+          {selectedTask && sidebarOpen && (
+            <div className="fixed top-0 right-0 h-full w-full md:max-w-md z-[60] pointer-events-auto">
+              <CommentThread
+                taskId={selectedTask.$id}
+                projectId={projectId}
+                user={user}
+                teamId={teamId}
+              />
+            </div>
+          )}
+          {/* Real-time comments for the project */}
+          <div className="w-full px-2 md:px-6 mt-8 mb-8">
+            {/* Comments for the project itself (not per task) */}
+            <CommentThread
+              projectId={projectId}
+              user={user}
+              teamId={teamId}
+            />
+          </div>
           {/* Analytics section placeholder */}
           <div className="w-full px-2 md:px-6 mt-8 mb-8">
             <h3 className="text-lg md:text-2xl font-bold text-indigo-700 mb-4">Project Analytics (Coming Soon)</h3>
